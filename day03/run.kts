@@ -23,11 +23,11 @@ data class Coords(val x: Int, val y: Int) {
         return deltaX <= 1 && deltaY <= 1
     }
 }
+
 data class Number(val value: Int, val coords: List<Coords>) {
-    fun isAdjacentTo(other: Coords): Boolean {
-        return this.coords.any { it.isAdjacentTo(other) }
-    }
+    fun isAdjacentTo(other: Coords): Boolean = coords.any { it.isAdjacentTo(other) }
 }
+
 data class Symbol(val value: Char, val coord: Coords)
 
 data class Adjacency(val symbol: Symbol, val numbers: List<Number>)
@@ -38,15 +38,16 @@ data class Gear(val numbers: Pair<Number, Number>) {
 
 fun parseNumbers(lines: List<String>): List<Number> {
     val numbers = mutableListOf<Number>()
+
     for (y in lines.indices) {
-        Regex("\\d+").findAll(lines[y]).forEach {
-            numbers.add(
+        numbers.addAll(
+            Regex("\\d+").findAll(lines[y]).map {
                 Number(
                     it.value.toInt(),
                     it.range.map { x -> Coords(x, y) },
-                ),
-            )
-        }
+                )
+            },
+        )
     }
     return numbers
 }
@@ -67,35 +68,35 @@ fun parseSymbols(lines: List<String>): List<Symbol> {
 fun findAdjacencies(lines: List<String>): List<Adjacency> {
     val numbers = parseNumbers(lines)
     val symbols = parseSymbols(lines)
-    val adjacencies = mutableListOf<Adjacency>()
-    for (symbol in symbols) {
-        val adjacentNumbers = numbers.filter {
-            it.isAdjacentTo(symbol.coord)
-        }
-        adjacencies.add(Adjacency(symbol, adjacentNumbers))
+
+    return symbols.fold(mutableListOf()) { acc, symbol ->
+        val adjacentNumbers = numbers.filter { number -> number.isAdjacentTo(symbol.coord) }
+        acc.addAll(adjacentNumbers.map { Adjacency(symbol, adjacentNumbers) })
+        acc
     }
-    return adjacencies
 }
 
 fun part1(lines: List<String>): Int {
     return findAdjacencies(lines).flatMap { it.numbers }.sumOf { it.value }
 }
 
-// fun part2(lines: List<String>): Int {
-//    val numbers = parseNumbers(lines)
-//    val gearSymbols = parseSymbols(lines).filter { it.value == '*' }
-//
-//    val f = numbers.fold(mutableListOf<Gear>()) { acc, number ->
-//        if (gearSymbols.filter { symbol -> number.isAdjacentTo(symbol.coord) }.size == 2) {
-//            acc.add(Gear(Pair(number, number))
-//        }
-//    }
-// }
+fun part2(lines: List<String>): Int {
+    val adjacencies = findAdjacencies(lines)
+    val gears = adjacencies.fold(mutableMapOf<Int, Gear>()) { acc, adjacency ->
+        if (adjacency.symbol.value == '*' && adjacency.numbers.size == 2) {
+            val gear = Gear(adjacency.numbers[0] to adjacency.numbers[1])
+            acc[gear.getRatio()] = gear
+        }
+        acc
+    }
+
+    return gears.keys.sum()
+}
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
-// println(part2(realInput))
+println(part2(realInput))
