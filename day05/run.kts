@@ -74,11 +74,21 @@ fun part1(input: String): Long {
     val (seeds, sections) = parseInput(input)
     return seeds.minOf { getSeedLocation(it, sections) }
 }
+fun part2(input: String): Long {
+    val (seeds, sections) = parseInput(input)
+    val seedRanges = seeds.chunked(2).map { (start, length) -> start..<start + length }
+    val mins = seedRanges.mapIndexed { index, range ->
+        println("range $index/${seedRanges.size}")
+        range.minOf { getSeedLocation(it, sections) }
+    }
+
+    return mins.min()
+}
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
-// println(part2(realInput))
+println(part2(realInput))
