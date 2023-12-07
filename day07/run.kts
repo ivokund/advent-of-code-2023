@@ -20,25 +20,23 @@ enum class Rating(val rating: Int) {
 
 val realInput = File("day07/input.txt").readLines()
 
+fun rateByCardGroups(cards: Map<Char, Int>): Rating {
+    return when {
+        cards.values.contains(5) -> Rating.FIVE_OF_KIND
+        cards.values.contains(4) -> Rating.FOUR_OF_KIND
+        cards.values.contains(3) && cards.values.contains(2) -> Rating.FULL_HOUSE
+        cards.values.contains(3) -> Rating.THREE_OF_KIND
+        cards.values.filter { it == 2 }.size == 2 -> Rating.TWO_PAIRS
+        cards.values.contains(2) -> Rating.ONE_PAIR
+        else -> Rating.HIGH_CARD
+    }
+}
+
 fun getNormalRating(cards: List<Char>): Rating {
     val groups = cards.groupBy { it }
         .map { (k, v) -> k to v.size }
         .associate { (k, v) -> k to v }
-    return if (groups.values.contains(5)) {
-        Rating.FIVE_OF_KIND
-    } else if (groups.values.contains(4)) {
-        Rating.FOUR_OF_KIND
-    } else if (groups.values.contains(3) && groups.values.contains(2)) {
-        Rating.FULL_HOUSE
-    } else if (groups.values.contains(3)) {
-        Rating.THREE_OF_KIND
-    } else if (groups.values.filter { it == 2 }.size == 2) {
-        Rating.TWO_PAIRS
-    } else if (groups.values.contains(2)) {
-        Rating.ONE_PAIR
-    } else {
-        Rating.HIGH_CARD
-    }
+    return rateByCardGroups(groups)
 }
 
 fun getJokerRating(cards: List<Char>): Rating {
@@ -56,21 +54,7 @@ fun getJokerRating(cards: List<Char>): Rating {
             adjusted = true
         }
     } while (adjusted)
-    return if (groups.values.contains(5)) {
-        Rating.FIVE_OF_KIND
-    } else if (groups.values.contains(4)) {
-        Rating.FOUR_OF_KIND
-    } else if (groups.values.contains(3) && groups.values.contains(2)) {
-        Rating.FULL_HOUSE
-    } else if (groups.values.contains(3)) {
-        Rating.THREE_OF_KIND
-    } else if (groups.values.filter { it == 2 }.size == 2) {
-        Rating.TWO_PAIRS
-    } else if (groups.values.contains(2)) {
-        Rating.ONE_PAIR
-    } else {
-        Rating.HIGH_CARD
-    }
+    return rateByCardGroups(groups)
 }
 data class Hand(val cards: List<Char>, val bid: Int, val rating: Rating)
 
@@ -93,27 +77,29 @@ fun sortHands(hands: List<Hand>, cardRatings: List<Char>): List<Hand> {
         )
 }
 
-fun part1(lines: List<String>): Int {
-    val cardRatings = listOf('2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A')
-
+fun run(cardRatings: List<Char>, ratingFunction: (List<Char>) -> Rating, lines: List<String>): Int {
     val hands = lines.map {
         val (cards, bid) = it.split(" ")
-        Hand(cards.toList(), bid.toInt(), getNormalRating(cards.toList()))
+        Hand(cards.toList(), bid.toInt(), ratingFunction(cards.toList()))
     }
     val sortedHands = sortHands(hands, cardRatings)
     return sortedHands.foldIndexed(0) { index, acc, hand -> (index + 1) * hand.bid + acc }
 }
 
+fun part1(lines: List<String>): Int {
+    return run(
+        listOf('2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'),
+        ::getNormalRating,
+        lines,
+    )
+}
+
 fun part2(lines: List<String>): Int {
-    val cardRatings = listOf('J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A')
-
-    val hands = lines.map {
-        val (cards, bid) = it.split(" ")
-        Hand(cards.toList(), bid.toInt(), getJokerRating(cards.toList()))
-    }
-
-    val sortedHands = sortHands(hands, cardRatings)
-    return sortedHands.foldIndexed(0) { index, acc, hand -> (index + 1) * hand.bid + acc }
+    return run(
+        listOf('J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A'),
+        ::getJokerRating,
+        lines,
+    )
 }
 
 println("--- test input")
@@ -123,6 +109,3 @@ println(part2(testInput))
 println("--- real input")
 println(part1(realInput))
 println(part2(realInput))
-
-// 254164885
-// 254177478
