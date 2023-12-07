@@ -20,66 +20,105 @@ enum class Rating(val rating: Int) {
 
 val realInput = File("day07/input.txt").readLines()
 
-fun parseHand(line: String): Hand {
-    val (cards, bid) = line.split(" ")
-    return Hand(cards.toList(), bid.toInt())
-}
-
-data class Hand(val cards: List<Char>, val bid: Int) {
-    fun rating(): Rating {
-        val groups = cards.groupBy { it }
-            .map { (k, v) -> k to v.size }
-            .associate { (k, v) -> k to v }
-        return if (groups.values.contains(5)) {
-            Rating.FIVE_OF_KIND
-        } else if (groups.values.contains(4)) {
-            Rating.FOUR_OF_KIND
-        } else if (groups.values.contains(3) && groups.values.contains(2)) {
-            Rating.FULL_HOUSE
-        } else if (groups.values.contains(3)) {
-            Rating.THREE_OF_KIND
-        } else if (groups.values.filter { it == 2 }.size == 2) {
-            Rating.TWO_PAIRS
-        } else if (groups.values.contains(2)) {
-            Rating.ONE_PAIR
-        } else {
-            Rating.HIGH_CARD
-        }
+fun getNormalRating(cards: List<Char>): Rating {
+    val groups = cards.groupBy { it }
+        .map { (k, v) -> k to v.size }
+        .associate { (k, v) -> k to v }
+    return if (groups.values.contains(5)) {
+        Rating.FIVE_OF_KIND
+    } else if (groups.values.contains(4)) {
+        Rating.FOUR_OF_KIND
+    } else if (groups.values.contains(3) && groups.values.contains(2)) {
+        Rating.FULL_HOUSE
+    } else if (groups.values.contains(3)) {
+        Rating.THREE_OF_KIND
+    } else if (groups.values.filter { it == 2 }.size == 2) {
+        Rating.TWO_PAIRS
+    } else if (groups.values.contains(2)) {
+        Rating.ONE_PAIR
+    } else {
+        Rating.HIGH_CARD
     }
 }
+
+fun getJokerRating(cards: List<Char>): Rating {
+    val groups = cards.groupBy { it }
+        .map { (k, v) -> k to v.size }
+        .associate { (k, v) -> k to v }
+        .toMutableMap()
+
+    do {
+        val jokerCount = groups['J'] ?: 0
+        if (jokerCount in 1..4) {
+//                println(groups)
+            val maxCard = groups.filter { it.key != 'J' && it.value < 5 }.maxBy { it.key }.key
+
+            groups[maxCard] = groups[maxCard]!! + 1
+            groups['J'] = groups['J']!! - 1
+        }
+    } while (jokerCount > 0)
+    return if (groups.values.contains(5)) {
+        Rating.FIVE_OF_KIND
+    } else if (groups.values.contains(4)) {
+        Rating.FOUR_OF_KIND
+    } else if (groups.values.contains(3) && groups.values.contains(2)) {
+        Rating.FULL_HOUSE
+    } else if (groups.values.contains(3)) {
+        Rating.THREE_OF_KIND
+    } else if (groups.values.filter { it == 2 }.size == 2) {
+        Rating.TWO_PAIRS
+    } else if (groups.values.contains(2)) {
+        Rating.ONE_PAIR
+    } else {
+        Rating.HIGH_CARD
+    }
+}
+data class Hand(val cards: List<Char>, val bid: Int, val rating: Rating)
 
 fun sortHands(hands: List<Hand>, cardRatings: List<Char>): List<Hand> {
     return hands
         .sortedWith(
             compareBy<Hand> {
-                it.rating().rating
-            }.thenByDescending {
+                it.rating.rating
+            }.thenBy {
                 cardRatings.indexOf(it.cards[0])
-            }.thenByDescending {
+            }.thenBy {
                 cardRatings.indexOf(it.cards[1])
-            }.thenByDescending {
+            }.thenBy {
                 cardRatings.indexOf(it.cards[2])
-            }.thenByDescending {
+            }.thenBy {
                 cardRatings.indexOf(it.cards[3])
-            }.thenByDescending {
+            }.thenBy {
                 cardRatings.indexOf(it.cards[4])
             },
         )
 }
 
 fun part1(lines: List<String>): Int {
-    val cardRatings = listOf('A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2')
-
-    val hands = lines.map { parseHand(it) }
+    val hands = lines.map {
+        val (cards, bid) = it.split(" ")
+        Hand(cards.toList(), bid.toInt(), getNormalRating(cards.toList()))
+    }
+    val cardRatings = listOf('2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A')
     val sortedHands = sortHands(hands, cardRatings)
 
     return sortedHands.foldIndexed(0) { index, acc, hand -> (index + 1) * hand.bid + acc }
 }
 
+fun part2(lines: List<String>): Int {
+    val hands = lines.map {
+        val (cards, bid) = it.split(" ")
+        Hand(cards.toList(), bid.toInt(), getJokerRating(cards.toList()))
+    }
+    val cardRatings = listOf('J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A')
+    val sortedHands = sortHands(hands, cardRatings)
+    return sortedHands.foldIndexed(0) { index, acc, hand -> (index + 1) * hand.bid + acc }
+}
+
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
-// println(part2(realInput))
+println(part2(realInput))
