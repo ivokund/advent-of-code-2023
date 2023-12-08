@@ -21,6 +21,19 @@ LR
 XXX = (XXX, XXX)
 """.trimIndent().lines()
 
+fun findLCM(a: Long, b: Long): Long {
+    val larger = if (a > b) a else b
+    val maxLcm = a * b
+    var lcm = larger
+    while (lcm <= maxLcm) {
+        if (lcm % a == 0L && lcm % b == 0L) {
+            return lcm
+        }
+        lcm += larger
+    }
+    return maxLcm
+}
+
 val realInput = File("day08/input.txt").readLines()
 
 fun parse(lines: List<String>): Map<String, Pair<String, String>> {
@@ -31,10 +44,10 @@ fun parse(lines: List<String>): Map<String, Pair<String, String>> {
 }
 
 fun moveStep (instruction: Char, nodes: Map<String, Pair<String, String>>, current: String): String {
-    if (instruction == 'L') {
-        return nodes[current]!!.first
+    return if (instruction == 'L') {
+        nodes[current]!!.first
     } else if (instruction == 'R') {
-        return nodes[current]!!.second
+        nodes[current]!!.second
     } else {
         throw Error("Invalid instruction")
     }
@@ -65,32 +78,21 @@ fun part2(lines: List<String>): Long {
     val instructions = lines[0].toList()
     val nodes = parse(lines)
 
-    var currentNodes = nodes.keys.filter { it.endsWith("A") }.associateBy { it }
-    var instructionCursor = 0
-    var stepsTaken = 0L
-
-    do {
-        val instruction = instructions[instructionCursor++] // todo: move by index
-
-        if (instructionCursor == instructions.size) {
-            instructionCursor = 0
-        }
-        stepsTaken++
-        if (stepsTaken % 10_000_000 == 0L) {
-            println(stepsTaken)
-            println(currentNodes)
+    val startNodes = nodes.keys
+        .filter { it.endsWith("A") }
+        .map {
+            var current = it
+            var steps = 0L
+            do {
+                instructions.forEach {
+                    current = moveStep(it, nodes, current)
+                    steps++
+                }
+            } while (!current.endsWith("Z"))
+            it to steps
         }
 
-        val newNodePositions = currentNodes.toMutableMap()
-
-        for (node in currentNodes) {
-            val newVal = moveStep(instruction, nodes, node.value)
-            newNodePositions[node.key] = newVal
-        }
-        currentNodes = newNodePositions
-    } while (!currentNodes.all { it.value.endsWith("Z") })
-
-    return stepsTaken
+    return startNodes.map { it.second }.reduce { acc, i -> findLCM(acc, i)}
 }
 
 println("--- test input")
@@ -98,5 +100,5 @@ println(part1(testInputPart1))
 println(part2(testInputPart2))
 
 println("--- real input")
- println(part1(realInput))
-// println(part2(realInput))
+println(part1(realInput))
+println(part2(realInput))
