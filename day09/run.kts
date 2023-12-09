@@ -8,8 +8,7 @@ val testInput = """
 
 val realInput = File("day09/input.txt").readLines()
 
-fun findNextValue (history: List<Int>): Int {
-
+fun findNewValues (history: List<Int>): Pair<Int, Int> {
     val sequences = mutableListOf(history)
     var lastSequence = history
 
@@ -21,28 +20,25 @@ fun findNextValue (history: List<Int>): Int {
 
     } while (lastSequence.any { it != 0 })
 
-
-    sequences.reverse()
-    val newSequences = mutableListOf<List<Int>>()
-
-    sequences.forEachIndexed { index, ints ->
-        val intToAdd = (if (index == 0) 0 else ints.last() + newSequences[index - 1].last())
-        newSequences.add(ints + intToAdd)
+    // left, right
+    var additions = Pair(0, 0)
+    sequences.reversed().forEachIndexed { index, ints ->
+        additions = Pair(
+            if (index == 0) 0 else ints.last() + additions.second,
+            if (index == 0) 0 else ints.first() - additions.first,
+        )
     }
-
-    return newSequences.last().last()
+    return additions
 }
 
-fun part1(lines: List<String>): Int {
+fun solve(lines: List<String>): Pair<Int, Int> {
     val histories = lines.map { it.split(" ").map { it.toInt() } }
-    val newValues = histories.map { findNextValue(it) }
-    return newValues.sum()
+    val newValues = histories.map { findNewValues(it) }
+    return Pair(newValues.sumOf { it.first }, newValues.sumOf { it.second })
 }
 
 println("--- test input")
-println(part1(testInput))
-// println(part2(testInput))
+solve(testInput).let { (part2, part1) -> println("Part1: $part1 \nPart2: $part2") }
 
 println("--- real input")
- println(part1(realInput))
-// println(part2(realInput))
+solve(realInput).let { (part2, part1) -> println("Part1: $part1 \nPart2: $part2") }
