@@ -1,7 +1,5 @@
 import java.io.File
 import kotlin.math.abs
-import kotlin.system.exitProcess
-
 
 val testInput = """
 ...#......
@@ -18,24 +16,39 @@ val testInput = """
 
 val realInput = File("day11/input.txt").readLines()
 
-data class Coords(val x: Int, val y: Int) {
-    fun distanceTo(other: Coords): Int {
+data class Coords(val x: Long, val y: Long) {
+    fun distanceTo(other: Coords): Long {
         return abs(x - other.x) + abs(y - other.y)
     }
 }
 
-data class Diagram(val map: Set<Coords>) {
-    val xMin = 0
-    val xMax = map.maxOf { it.x }
-    val yMin = 0
-    val yMax = map.maxOf { it.y }
+data class Diagram(val galaxies: Set<Coords>) {
+    private val xMin = 0
+    private val xMax = galaxies.maxOf { it.x }
+    private val yMin = 0
+    private val yMax = galaxies.maxOf { it.y }
+
+    fun getDistances(): Map<Pair<Coords, Coords>, Long> {
+        val distanceMap = mutableMapOf<Pair<Coords, Coords>, Long>()
+        galaxies.forEach {
+            galaxies.forEach { other ->
+                if (!(it.x == other.x && it.y == other.y)
+                    && !distanceMap.contains(Pair(it, other))
+                    && !distanceMap.contains(Pair(other, it))
+                ) {
+                    distanceMap[it to other] = it.distanceTo(other)
+                }
+            }
+        }
+        return distanceMap.toMap()
+    }
 
     fun draw() {
         val out: MutableList<String> = mutableListOf()
         for (y in yMin..yMax) {
             var line = ""
             for (x in xMin..xMax) {
-                val tile = if (map.contains(Coords(x, y))) "#" else "."
+                val tile = if (galaxies.contains(Coords(x, y))) "#" else "."
                 line += tile
             }
             out.add(line)
@@ -43,25 +56,20 @@ data class Diagram(val map: Set<Coords>) {
         println(out.joinToString("\n"))
     }
 
-    fun getExpanded(): Diagram {
-        val galaxyCoords = map
-        val setX = galaxyCoords.map { it.x }.toSet()
-        val setY = galaxyCoords.map { it.y }.toSet()
+    fun getExpanded(times: Int): Diagram {
+        val expandY = (yMin..yMax).filter { y -> galaxies.none { it.y == y } }
+        val expandX = (xMin..xMax).filter { x -> galaxies.none { it.x == x } }
 
-        val expandY = (yMin..yMax).filterNot { setY.contains(it) }
-        val expandX = (xMin..xMax).filterNot { setX.contains(it) }
-
-        var newGalaxies = galaxyCoords
+        var newGalaxies = galaxies
 
         for (x in expandX.reversed()) {
             newGalaxies = newGalaxies.map {
-                Coords(if (it.x > x) it.x + 1 else it.x, it.y)
+                Coords(if (it.x > x) it.x + times - 1 else it.x, it.y)
             }.toSet()
-
         }
         for (y in expandY.reversed()) {
             newGalaxies = newGalaxies.map {
-                Coords(it.x, if (it.y > y) it.y + 1 else it.y)
+                Coords(it.x, if (it.y > y) it.y + times - 1 else it.y)
             }.toSet()
         }
 
@@ -70,38 +78,30 @@ data class Diagram(val map: Set<Coords>) {
 }
 
 fun parseInput(lines: List<String>) = Diagram(
-    lines.flatMapIndexed { y, line ->
+    lines.mapIndexed { y, line ->
         line.foldIndexed(mutableSetOf<Coords>()) { x, acc, c ->
-            if (c == '#') acc.add(Coords(x, y))
+            if (c == '#') acc.add(Coords(x.toLong(), y.toLong()))
             acc
         }
-    }.toSet()
+    }.flatten().toSet()
 )
 
-fun part1(lines: List<String>): Int {
-    val diagram = parseInput(lines).getExpanded()
-
-    diagram.draw()
-    val distanceMap = mutableMapOf<Pair<Coords, Coords>, Int>()
-
-    diagram.map.forEach {
-        diagram.map.forEach { other ->
-            if (!(it.x == other.x && it.y == other.y)
-                && !distanceMap.contains(Pair(it, other))
-                && !distanceMap.contains(Pair(other, it))
-            ) {
-                distanceMap[it to other] = it.distanceTo(other)
-            }
-
-        }
-    }
-    return distanceMap.values.sum()
+fun part1(lines: List<String>): Long {
+    val diagram = parseInput(lines).getExpanded(2)
+    return diagram.getDistances().values.sum()
 }
+
+fun part2(lines: List<String>): Long {
+    val diagram = parseInput(lines).getExpanded(1_000_000)
+    return diagram.getDistances().values.sum()
+}
+
+
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
- println(part1(realInput))
-// println(part2(realInput))
+println(part1(realInput))
+println(part2(realInput))
