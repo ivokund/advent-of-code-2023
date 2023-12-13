@@ -88,14 +88,27 @@ fun part1(lines: List<String>): Int {
             .toList()
         Row(springsGroups, counts.split(",").map { it.toInt() })
     }
-
     return rows.sumOf { getCombinationsForRow(it) }
+}
+
+fun part2(lines: List<String>): Int {
+    val rows = lines.map { line ->
+        val (springs, counts) = line.split(" ")
+        val springsGroups = List(5) { springs }.joinToString("?").toList()
+        val countsMultiplied = List(5) { counts }.joinToString(",")
+        Row(springsGroups, countsMultiplied.split(",").map { it.toInt() })
+    }
+    return rows.sumOf {
+        val sum = getCombinationsForRow(it)
+        println("sum: $sum")
+        sum
+    }
 }
 
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+ println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
