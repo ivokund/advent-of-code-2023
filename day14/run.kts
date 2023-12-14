@@ -15,11 +15,54 @@ O.#..O.#.#
 """.trimIndent().lines()
 
 val realInput = File("day14/input.txt").readLines()
+
 data class Coords(val x: Int, val y: Int) {
     fun distanceTo(other: Coords): Int {
         return abs(x - other.x) + abs(y - other.y)
     }
 }
+
+fun replacePattern(input: String, regex: Regex, replacement: String): String {
+    return if (!regex.containsMatchIn(input)) {
+        input
+    } else {
+        replacePattern(input.replace(regex, replacement), regex, replacement)
+    }
+}
+
+
+fun collapseLine(line: String, toStart: Boolean): String {
+    fun collapseSegment(segment: String): String {
+        val dots = ".".repeat(segment.count { it == '.' })
+        val rocks = "O".repeat(segment.count { it == 'O' })
+        val ret = if (toStart) rocks + dots else dots + rocks
+        return ret
+    }
+
+    val newLine = line.split("#").joinToString("#") {
+        collapseSegment(it)
+    }
+    return newLine
+}
+
+
+
+check(collapseLine("OO.O.O..##", true) == "OOOO....##")
+
+fun fromRows(lines: List<String>) = Diagram(
+    lines.foldIndexed(mutableMapOf()) { y, acc, line ->
+        line.forEachIndexed { x, c -> if (c != '.') acc[Coords(x, y)] = c }
+        acc
+    }
+)
+
+fun fromColumns(cols: List<String>) = Diagram(
+    cols.foldIndexed(mutableMapOf()) { x, acc, col ->
+        col.forEachIndexed { y, c -> if (c != '.') acc[Coords(x, y)] = c }
+        acc
+    }
+)
+
 
 data class Diagram(val rocks: Map<Coords, Char>) {
     private val xMin = 0
@@ -51,29 +94,10 @@ data class Diagram(val rocks: Map<Coords, Char>) {
         return out
     }
 
-    fun getTiltedTop(): Diagram {
-        var out = rocks
-
-        doLoop@
-        do {
-            var moved = false
-
-            for (y in yMin..yMax) {
-                for ((coords, c) in out) {
-                    if (coords.y != y || c == '#') continue
-                    val newCoords = Coords(coords.x, coords.y - 1)
-
-                    if (newCoords.y >= yMin && out[newCoords] == null) {
-                        out = out.minus(coords) + (newCoords to c)
-                        moved = true
-                        continue@doLoop
-                    }
-                }
-            }
-        } while (moved)
-
-        return Diagram(out)
-    }
+    fun getTiltedTop() = fromColumns(
+        getColumns().map {
+            collapseLine(it, true)
+        })
 
     fun getTotalLoad(): Int {
         return rocks.filter { it.value == 'O' }
@@ -86,19 +110,9 @@ data class Diagram(val rocks: Map<Coords, Char>) {
     }
 }
 
-fun parseInput(lines: List<String>) = Diagram(
-    lines.foldIndexed(mutableMapOf()) { y, acc, line ->
-        line.forEachIndexed { x, c ->
-            if (c != '.') acc[Coords(x, y)] = c
-        }
-        acc
-    }
-)
-
-
 fun part1(lines: List<String>): Int {
 
-    val diagram = parseInput(lines).getTiltedTop()
+    val diagram = fromRows(lines).getTiltedTop()
     diagram.draw()
     return diagram.getTotalLoad()
 }
