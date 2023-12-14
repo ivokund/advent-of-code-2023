@@ -35,8 +35,7 @@ fun collapseLine(line: String, toStart: Boolean): String {
     fun collapseSegment(segment: String): String {
         val dots = ".".repeat(segment.count { it == '.' })
         val rocks = "O".repeat(segment.count { it == 'O' })
-        val ret = if (toStart) rocks + dots else dots + rocks
-        return ret
+        return if (toStart) rocks + dots else dots + rocks
     }
 
     val newLine = line.split("#").joinToString("#") {
@@ -44,10 +43,6 @@ fun collapseLine(line: String, toStart: Boolean): String {
     }
     return newLine
 }
-
-
-
-check(collapseLine("OO.O.O..##", true) == "OOOO....##")
 
 fun fromRows(lines: List<String>) = Diagram(
     lines.foldIndexed(mutableMapOf()) { y, acc, line ->
@@ -94,10 +89,17 @@ data class Diagram(val rocks: Map<Coords, Char>) {
         return out
     }
 
-    fun getTiltedTop() = fromColumns(
-        getColumns().map {
-            collapseLine(it, true)
-        })
+    fun getTiltedTop() = fromColumns(getColumns().map { collapseLine(it, true) })
+    fun getTiltedLeft() = fromRows(getRows().map { collapseLine(it, true) })
+    fun getTiltedBottom() = fromColumns(getColumns().map { collapseLine(it, false) })
+    fun getTiltedRight() = fromRows(getRows().map { collapseLine(it, false) })
+
+    fun getTiltedOneRound(): Diagram {
+        return this.getTiltedTop()
+            .getTiltedLeft()
+            .getTiltedBottom()
+            .getTiltedRight()
+    }
 
     fun getTotalLoad(): Int {
         return rocks.filter { it.value == 'O' }
@@ -111,16 +113,27 @@ data class Diagram(val rocks: Map<Coords, Char>) {
 }
 
 fun part1(lines: List<String>): Int {
-
     val diagram = fromRows(lines).getTiltedTop()
-    diagram.draw()
+//    diagram.draw()
+    return diagram.getTotalLoad()
+}
+
+fun part2(lines: List<String>): Int {
+    var diagram = fromRows(lines)
+
+    val startRounds = 200
+    val cycleLength = 42
+    val totalRuns = 1000000000 - startRounds
+    val neededRuns = startRounds + totalRuns % cycleLength
+
+    repeat(neededRuns) { diagram = diagram.getTiltedOneRound() }
     return diagram.getTotalLoad()
 }
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
- println(part1(realInput))
-// println(part2(realInput))
+println(part1(realInput))
+println(part2(realInput))
