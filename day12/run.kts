@@ -31,21 +31,20 @@ fun getCombinationsForRow(row: Row): Int {
         parsedGroupStarts: List<Int>,
         remainingPositions: List<List<Int>>,
         groupSizes: List<Int>
-    ): Set<List<Int>> {
+    ): List<List<Int>> {
         if (remainingPositions.isEmpty()) {
-            return setOf(parsedGroupStarts)
+            return listOf(parsedGroupStarts)
         }
         val nextGroup = remainingPositions.first()
-
-        val newCombinations = mutableSetOf<List<Int>>()
-        nextGroup
-            .filter { parsedGroupStarts.isEmpty() || it > parsedGroupStarts.last() + groupSizes[parsedGroupStarts.size - 1] }
-            .forEach { pos ->
-                newCombinations.addAll(
-                    generateCombinations(parsedGroupStarts + pos, remainingPositions.drop(1), groupSizes)
-                )
+//        println(parsedGroupStarts)
+        return nextGroup
+            .filter {
+                parsedGroupStarts.isEmpty()
+                        || it > parsedGroupStarts.last() + groupSizes[parsedGroupStarts.size - 1]
             }
-        return newCombinations
+            .flatMap { pos ->
+                generateCombinations(parsedGroupStarts + pos, remainingPositions.drop(1), groupSizes)
+            }
     }
 
     val possiblePositions = row.counts.map {
@@ -63,8 +62,10 @@ fun getCombinationsForRow(row: Row): Int {
         positions
     }
 
+//    println("combinations pre")
     val combinations = generateCombinations(emptyList(), possiblePositions, row.counts)
 
+//    println("combinations done")
     // filter using regex and leave only valid patterns
     val validCombinations = combinations.filter { startPositions ->
         var springs = row.springs.joinToString("")
@@ -108,7 +109,7 @@ fun part2(lines: List<String>): Int {
 
 println("--- test input")
 println(part1(testInput))
- println(part2(testInput))
+// println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
