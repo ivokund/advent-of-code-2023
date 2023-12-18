@@ -1,5 +1,7 @@
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.system.exitProcess
 
 val testInput = """
 2413432311323
@@ -62,6 +64,16 @@ data class Diagram(val cells: Map<Coords, Int>) {
         println(getRows().joinToString("\n"))
     }
 
+    fun getAreaSum(from: Coords, to: Coords): Int {
+        val (startY, endY) = listOf(from.y, to.y).sorted()
+        val (startX, endX) = listOf(from.x, to.x).sorted()
+        return (startY..endY).sumOf { y ->
+            (startX..endX).sumOf { x ->
+                cells[Coords(x, y)]!!
+            }
+        }
+    }
+
     fun findShortestPath(straightMin: Int, straightMax: Int): Int {
         val deltasByDirection = mapOf(
             'N' to Coords(0, -1),
@@ -104,22 +116,38 @@ data class Diagram(val cells: Map<Coords, Int>) {
             openStack.remove(stackItem)
             closed.add(current)
 
-            deltasByDirection
+
+            val options = if (current.stepsX < straightMin && current.stepsY < straightMin) {
+//                println("below min: ${current.stepsX}, ${current.stepsY}")
+                mapOf(prevDirection to deltasByDirection[prevDirection]!!)
+            } else {
+                deltasByDirection
+            }.filter {
+                fits(current.coords.adjustedBy(it.value))
+            }
+
+//            println(options)
+
+            options
                 .filter {
-                    fits(current.coords.adjustedBy(it.value))
-                }.filter {
                     opposites[it.key] != prevDirection && opposites[prevDirection] != it.key
                 }
                 .mapValues {
                     val newCoord = current.coords.adjustedBy(it.value)
                     val newStepsX = if (it.value.x != 0) current.stepsX + 1 else 0
                     val newStepsY = if (it.value.y != 0) current.stepsY + 1 else 0
+
                     StackItem(newCoord, newStepsX, newStepsY)
                 }
-                .filter { it.value.stepsX <= straightMax && it.value.stepsY <= straightMax }
+                .filter {
+                    val underMax = it.value.stepsX <= straightMax && it.value.stepsY <= straightMax
+//                    println("underMax: $underMax. Steps: ${it.value.stepsX}, ${it.value.stepsY} less than $straightMax")
+                    underMax
+                }
                 .forEach {
 
                     val (newDirection, newStackItem) = it
+
 //                    println("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
 
                     val nodeValue = cells[newStackItem.coords]!!
@@ -134,11 +162,11 @@ data class Diagram(val cells: Map<Coords, Int>) {
                         // use manhattan distance as the heuristic
                         costs[newStackItem] = cost + newStackItem.coords.distanceTo(target)
                         val finalItem = Pair(newStackItem, newDirection)
+//                        println("  adding pair: $finalItem")
                         if (finalItem !in openStack) {
                             openStack.add(finalItem)
                         }
                     }
-
                 }
         } while (openStack.isNotEmpty())
 
@@ -155,7 +183,7 @@ data class Diagram(val cells: Map<Coords, Int>) {
 //        val newMap = cells + pathToTarget.map { it to 0 }.toMap()
 //        val d = Diagram(newMap)
 //        d.draw()
-//
+////
         val cost = pathToTarget
             .dropLast(1)
             .fold(0) { acc, coords -> acc + cells[coords]!! }
@@ -169,10 +197,17 @@ fun part1(lines: List<String>): Int {
     return diagram.findShortestPath(1, 3)
 }
 
+fun part2(lines: List<String>): Int {
+    val diagram = fromRows(lines)
+    return diagram.findShortestPath(4, 10)
+}
+
 println("--- test input")
-println(part1(testInput))
-// println(part2(testInput))
+//println(part1(testInput))
+//println(part2(testInput))
 
 println("--- real input")
- println(part1(realInput))
-// println(part2(realInput))
+//println(part1(realInput))
+println(part2(realInput))
+// 1387
+// 1109
