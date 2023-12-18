@@ -26,13 +26,21 @@ data class Coords(val x: Int, val y: Int) {
     }
 }
 
+data class StackItem(val coords: Coords, val stepsX: Int, val stepsY: Int) {
+    // todo
+//    override fun hashCode(): Int {
+//        if (lastNode == null) return super.hashCode() else {
+//            return StackItem(coords, stepsX, stepsY, null).hashCode()
+//        }
+//    }
+}
+
 fun fromRows(lines: List<String>) = Diagram(
     lines.foldIndexed(mutableMapOf()) { y, acc, line ->
         line.forEachIndexed { x, c -> acc[Coords(x, y)] = c.digitToInt() }
         acc
     }
 )
-
 
 data class Diagram(val cells: Map<Coords, Int>) {
     private val xMin = 0
@@ -61,73 +69,111 @@ data class Diagram(val cells: Map<Coords, Int>) {
     }
 
     fun getPaths(): Int {
+
+//        println("=====")
+//        cells.keys.forEach {
+//            println("${it.x},${it.y} -> ${cells[it]}:: ${it.hashCode()}")
+//        }
+//        println("=====")
+
+        val deltasByDirection = mapOf(
+            'N' to Coords(0, -1),
+            'S' to Coords(0, 1),
+            'W' to Coords(-1, 0),
+            'E' to Coords(1, 0)
+        )
+        val opposites = mapOf(
+            'N' to 'S',
+            'S' to 'N',
+            'W' to 'E',
+            'E' to 'W'
+        )
+
         val entryPoint = Coords(xMin, yMin)
         val target = Coords(xMax, yMax)
 
-        // use a* to find the shortest path
-        val open = mutableSetOf(entryPoint)
-        val closed = mutableSetOf<Coords>()
+        val firstFrame = StackItem(entryPoint, 0, 0)
 
-        val shortestPathsFromStart = mutableMapOf(entryPoint to 0)
+        // use a* to find the shortest path
+        val openStack = mutableSetOf(Pair(firstFrame, 'E'))
+        val closed = mutableSetOf<StackItem>()
+
+        val shortestPathsFromStart = mutableMapOf(firstFrame to 0)
 
         val heuristicFn: (Coords) -> Int = {
             it.distanceTo(target)
         }
 
-        val costs = mutableMapOf<Coords, Int>()
-        val bestParentsByNode = mutableMapOf<Coords, Coords?>(entryPoint to null)
+        val costs = mutableMapOf<StackItem, Int>()
+        val bestParentsByNode = mutableMapOf<StackItem, StackItem?>(firstFrame to null)
 
         do {
-//            println("======")
-            println("open: $open")
+            println("======")
+
+//            println("open: $open")
 //            println("closed: $closed")
             // choose the node with the lowest cost
-            val current = open.minByOrNull { costs[it]!! }!!
-//            println("current: $current")
-            if (current == target) {
-                println("found target")
+            val stackItem = openStack.minByOrNull { costs[it.first]!! }!!
+            val (current, prevDirection) = stackItem
+            println("current: $current")
+            if (current.coords == target) {
+                println("========== found target ==========")
                 break
             }
 
 
-            open.remove(current)
+            openStack.remove(stackItem)
             closed.add(current)
 
-            listOf(
-                current.adjustedBy(Coords(0, -1)),
-                current.adjustedBy(Coords(0, 1)),
-                current.adjustedBy(Coords(-1, 0)),
-                current.adjustedBy(Coords(1, 0))
-            ).filter { fits(it) }
+            deltasByDirection
+                .filter {
+                    fits(current.coords.adjustedBy(it.value))
+                }.filter {
+                    opposites[it.key] != prevDirection && opposites[prevDirection] != it.key
+                }
+                .mapValues {
+                    val newCoord = current.coords.adjustedBy(it.value)
+                    val newStepsX = if (it.value.x != 0) current.stepsX + 1 else 0
+                    val newStepsY = if (it.value.y != 0) current.stepsY + 1 else 0
+                    StackItem(newCoord, newStepsX, newStepsY)
+                }
+                .filter { it.value.stepsX <= 3 && it.value.stepsY <= 3 }
                 .forEach {
-//                    println("   neighbor: $it")
-                    val nodeValue = cells[it]!!
+
+                    val (newDirection, newStackItem) = it
+                    println("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
+
+                    val nodeValue = cells[newStackItem.coords]!!
                     val cost = shortestPathsFromStart[current]!! + nodeValue
-//                    println("      cost: $cost")
+                    println("      cost: $cost")
 
-                    if (shortestPathsFromStart[it] == null || cost < shortestPathsFromStart[it]!!) {
-//                        println("      updating")
-                        shortestPathsFromStart[it] = cost
-                        bestParentsByNode[it] = current
+                    if (shortestPathsFromStart[newStackItem] == null || cost < shortestPathsFromStart[newStackItem]!!) {
+                        println("      updating")
+                        shortestPathsFromStart[newStackItem] = cost
+                        bestParentsByNode[newStackItem] = current
 
-                        costs[it] = cost + heuristicFn(it)
-                        if (it !in open) {
-                            open.add(it)
+                        costs[newStackItem] = cost + heuristicFn(newStackItem.coords)
+                        val finalItem = Pair(newStackItem, newDirection)
+                        if (finalItem !in openStack) {
+                            openStack.add(finalItem)
                         }
                     }
+
                 }
-        } while (open.isNotEmpty())
+        } while (openStack.isNotEmpty())
 
         val pathToTarget = mutableListOf(target)
-        var current: Coords? = target
+        var current: StackItem? = bestParentsByNode.keys.first { it.coords == target }
         while (current != null) {
             current = bestParentsByNode[current]
             if (current != null) {
-                pathToTarget.add(current)
+                pathToTarget.add(current.coords)
             }
         }
 
-        val d = Diagram(pathToTarget.map { it to 0 }.toMap())
+
+        val newMap = cells + pathToTarget.map { it to 0 }.toMap()
+        val d = Diagram(newMap)
         d.draw()
 
         val cost1 = pathToTarget.dropLast(1).fold(0) { acc, coords -> acc + cells[coords]!! }
@@ -146,5 +192,5 @@ println(part1(testInput))
 // println(part2(testInput))
 
 println("--- real input")
-// println(part1(realInput))
+ println(part1(realInput))
 // println(part2(realInput))
