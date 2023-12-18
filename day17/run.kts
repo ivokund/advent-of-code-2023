@@ -27,12 +27,6 @@ data class Coords(val x: Int, val y: Int) {
 }
 
 data class StackItem(val coords: Coords, val stepsX: Int, val stepsY: Int) {
-    // todo
-//    override fun hashCode(): Int {
-//        if (lastNode == null) return super.hashCode() else {
-//            return StackItem(coords, stepsX, stepsY, null).hashCode()
-//        }
-//    }
 }
 
 fun fromRows(lines: List<String>) = Diagram(
@@ -68,14 +62,7 @@ data class Diagram(val cells: Map<Coords, Int>) {
         println(getRows().joinToString("\n"))
     }
 
-    fun getPaths(): Int {
-
-//        println("=====")
-//        cells.keys.forEach {
-//            println("${it.x},${it.y} -> ${cells[it]}:: ${it.hashCode()}")
-//        }
-//        println("=====")
-
+    fun findShortestPath(straightMin: Int, straightMax: Int): Int {
         val deltasByDirection = mapOf(
             'N' to Coords(0, -1),
             'S' to Coords(0, 1),
@@ -94,28 +81,20 @@ data class Diagram(val cells: Map<Coords, Int>) {
 
         val firstFrame = StackItem(entryPoint, 0, 0)
 
-        // use a* to find the shortest path
         val openStack = mutableSetOf(Pair(firstFrame, 'E'))
         val closed = mutableSetOf<StackItem>()
 
         val shortestPathsFromStart = mutableMapOf(firstFrame to 0)
 
-        val heuristicFn: (Coords) -> Int = {
-            it.distanceTo(target)
-        }
-
         val costs = mutableMapOf<StackItem, Int>()
         val bestParentsByNode = mutableMapOf<StackItem, StackItem?>(firstFrame to null)
 
         do {
-            println("======")
+//            println("======")
 
-//            println("open: $open")
-//            println("closed: $closed")
-            // choose the node with the lowest cost
             val stackItem = openStack.minByOrNull { costs[it.first]!! }!!
             val (current, prevDirection) = stackItem
-            println("current: $current")
+//            println("current: $current")
             if (current.coords == target) {
                 println("========== found target ==========")
                 break
@@ -137,22 +116,23 @@ data class Diagram(val cells: Map<Coords, Int>) {
                     val newStepsY = if (it.value.y != 0) current.stepsY + 1 else 0
                     StackItem(newCoord, newStepsX, newStepsY)
                 }
-                .filter { it.value.stepsX <= 3 && it.value.stepsY <= 3 }
+                .filter { it.value.stepsX <= straightMax && it.value.stepsY <= straightMax }
                 .forEach {
 
                     val (newDirection, newStackItem) = it
-                    println("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
+//                    println("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
 
                     val nodeValue = cells[newStackItem.coords]!!
                     val cost = shortestPathsFromStart[current]!! + nodeValue
-                    println("      cost: $cost")
+//                    println("      cost: $cost")
 
                     if (shortestPathsFromStart[newStackItem] == null || cost < shortestPathsFromStart[newStackItem]!!) {
-                        println("      updating")
+//                        println("      updating")
                         shortestPathsFromStart[newStackItem] = cost
                         bestParentsByNode[newStackItem] = current
 
-                        costs[newStackItem] = cost + heuristicFn(newStackItem.coords)
+                        // use manhattan distance as the heuristic
+                        costs[newStackItem] = cost + newStackItem.coords.distanceTo(target)
                         val finalItem = Pair(newStackItem, newDirection)
                         if (finalItem !in openStack) {
                             openStack.add(finalItem)
@@ -172,19 +152,21 @@ data class Diagram(val cells: Map<Coords, Int>) {
         }
 
 
-        val newMap = cells + pathToTarget.map { it to 0 }.toMap()
-        val d = Diagram(newMap)
-        d.draw()
+//        val newMap = cells + pathToTarget.map { it to 0 }.toMap()
+//        val d = Diagram(newMap)
+//        d.draw()
+//
+        val cost = pathToTarget
+            .dropLast(1)
+            .fold(0) { acc, coords -> acc + cells[coords]!! }
 
-        val cost1 = pathToTarget.dropLast(1).fold(0) { acc, coords -> acc + cells[coords]!! }
-
-        return cost1
+        return cost
     }
 }
 
 fun part1(lines: List<String>): Int {
     val diagram = fromRows(lines)
-    return diagram.getPaths()
+    return diagram.findShortestPath(1, 3)
 }
 
 println("--- test input")
