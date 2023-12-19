@@ -19,6 +19,32 @@ val testInput = """
 4322674655533
 """.trimIndent().lines()
 
+val testInput2 = """
+111111111111
+999999999991
+999999999991
+999999999991
+999999999991
+""".trimIndent().lines()
+
+val correctPaths = listOf(
+    Coords(1, 0),
+    Coords(2, 0),
+    Coords(3, 0),
+    Coords(4, 0),
+    Coords(5, 0),
+    Coords(6, 0),
+    Coords(7, 0),
+    Coords(7, 1),
+    Coords(7, 2),
+    Coords(7, 3),
+    Coords(7, 4),
+    Coords(8, 4),
+    Coords(9, 4),
+    Coords(10, 4),
+    Coords(11, 4),
+)
+
 val realInput = File("day17/input.txt").readLines()
 
 data class Coords(val x: Int, val y: Int) {
@@ -88,6 +114,7 @@ data class Diagram(val cells: Map<Coords, Int>) {
             'E' to 'W'
         )
 
+
         val entryPoint = Coords(xMin, yMin)
         val target = Coords(xMax, yMax)
 
@@ -102,34 +129,46 @@ data class Diagram(val cells: Map<Coords, Int>) {
         val bestParentsByNode = mutableMapOf<StackItem, StackItem?>(firstFrame to null)
 
         do {
-//            println("======")
 
             val stackItem = openStack.minByOrNull { costs[it.first]!! }!!
             val (current, prevDirection) = stackItem
-//            println("current: $current")
-            if (current.coords == target) {
-                println("========== found target ==========")
+
+            val debug: (Any) -> Unit = {
+                if (current.coords in correctPaths) {
+//                    println(it)
+                }
+            }
+            debug("======")
+
+
+
+            debug("current: $current, moving $prevDirection")
+            if (current.coords == target ) {
+                debug("========== found target ==========")
+                debug("moving $prevDirection")
+                debug("StepsX: ${current.stepsX}, StepsY: ${current.stepsY}, min: $straightMin")
                 break
             }
-
 
             openStack.remove(stackItem)
             closed.add(current)
 
 
             val options = if (current.stepsX < straightMin && current.stepsY < straightMin) {
-//                println("below min: ${current.stepsX}, ${current.stepsY}")
+                debug("below min: ${current.stepsX}, ${current.stepsY}")
                 mapOf(prevDirection to deltasByDirection[prevDirection]!!)
             } else {
                 deltasByDirection
             }.filter {
+//                println("-- filtering: ${it.key}")
                 fits(current.coords.adjustedBy(it.value))
             }
 
-//            println(options)
+            debug(options)
 
             options
                 .filter {
+                    // cannot turn backwards
                     opposites[it.key] != prevDirection && opposites[prevDirection] != it.key
                 }
                 .mapValues {
@@ -140,6 +179,18 @@ data class Diagram(val cells: Map<Coords, Int>) {
                     StackItem(newCoord, newStepsX, newStepsY)
                 }
                 .filter {
+                    // filter out moves that would not complete before border
+                    val stepsToBorderX = xMax - it.value.coords.x
+                    val stepsToBorderY = yMax - it.value.coords.y
+
+                    val stepsRequiredX = straightMin - it.value.stepsX
+                    val stepsRequiredY = straightMin - it.value.stepsY
+
+                    stepsToBorderX >= stepsRequiredX || stepsToBorderY >= stepsRequiredY
+                }
+
+                .filter {
+                    // only allow moves that don't exceed straightMax
                     val underMax = it.value.stepsX <= straightMax && it.value.stepsY <= straightMax
 //                    println("underMax: $underMax. Steps: ${it.value.stepsX}, ${it.value.stepsY} less than $straightMax")
                     underMax
@@ -148,7 +199,7 @@ data class Diagram(val cells: Map<Coords, Int>) {
 
                     val (newDirection, newStackItem) = it
 
-//                    println("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
+                    debug("-- Processing: ${newStackItem.coords.x},${newStackItem.coords.y}  [${cells[newStackItem.coords]}]")
 
                     val nodeValue = cells[newStackItem.coords]!!
                     val cost = shortestPathsFromStart[current]!! + nodeValue
@@ -162,9 +213,13 @@ data class Diagram(val cells: Map<Coords, Int>) {
                         // use manhattan distance as the heuristic
                         costs[newStackItem] = cost + newStackItem.coords.distanceTo(target)
                         val finalItem = Pair(newStackItem, newDirection)
-//                        println("  adding pair: $finalItem")
+                        debug("prepping to add")
                         if (finalItem !in openStack) {
+                            debug("  adding pair: $finalItem")
                             openStack.add(finalItem)
+
+                            debug("   stack content:")
+                            debug(openStack)
                         }
                     }
                 }
@@ -203,11 +258,15 @@ fun part2(lines: List<String>): Int {
 }
 
 println("--- test input")
-//println(part1(testInput))
-//println(part2(testInput))
+println(part1(testInput)) // 102
+println(part2(testInput)) // 94
+println(part2(testInput2)) // 71
 
 println("--- real input")
-//println(part1(realInput))
-println(part2(realInput))
+println(part1(realInput)) // 956
+println(part2(realInput)) // ???
+
+// wrong so far:
 // 1387
 // 1109
+// 1111
