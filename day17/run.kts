@@ -19,6 +19,14 @@ val testInput = """
 4322674655533
 """.trimIndent().lines()
 
+//// todo: should be 8
+//val testInput2 = """
+//19999
+//19999
+//19999
+//19999
+//11111
+//""".trimIndent().lines()
 val testInput2 = """
 111111111111
 999999999991
@@ -120,12 +128,15 @@ data class Diagram(val cells: Map<Coords, Int>) {
 
         val firstFrame = StackItem(entryPoint, 0, 0)
 
-        val openStack = mutableSetOf(Pair(firstFrame, 'E'))
+        // todo: S is not considered after E finishes
+        val openStack = mutableSetOf(Pair(firstFrame, 'E'), Pair(firstFrame, 'S'))
         val closed = mutableSetOf<StackItem>()
 
         val shortestPathsFromStart = mutableMapOf(firstFrame to 0)
 
-        val costs = mutableMapOf<StackItem, Int>()
+        val costs = mutableMapOf(
+            firstFrame to Int.MAX_VALUE
+        )
         val bestParentsByNode = mutableMapOf<StackItem, StackItem?>(firstFrame to null)
 
         do {
@@ -134,9 +145,9 @@ data class Diagram(val cells: Map<Coords, Int>) {
             val (current, prevDirection) = stackItem
 
             val debug: (Any) -> Unit = {
-                if (current.coords in correctPaths) {
+//                if (current.coords in correctPaths) {
 //                    println(it)
-                }
+//                }
             }
             debug("======")
 
@@ -264,9 +275,10 @@ println(part2(testInput2)) // 71
 
 println("--- real input")
 println(part1(realInput)) // 956
-println(part2(realInput)) // ???
+println(part2(realInput)) // 1106?
 
 // wrong so far:
 // 1387
 // 1109
 // 1111
+// 1114
