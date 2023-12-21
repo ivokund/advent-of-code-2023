@@ -39,15 +39,19 @@ data class Coords(val x: Int, val y: Int) {
     }
 }
 
-data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>) {
+data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>, val xMax: Int, val yMax: Int) {
     private val xMin = 0
-    private val xMax = rocks.maxOf { it.x }.toInt()
     private val yMin = 0
-    private val yMax = rocks.maxOf { it.y }.toInt()
 
-    fun getOpenAdjacencies(coord: Coords): List<Coords> {
+    fun getOpenInfiniteAdjacencies(coord: Coords): List<Coords> {
         return coord.getAdjacencies()
-            .filter { it.x in xMin..xMax && it.y in yMin..yMax }
+            .map {
+                if (it.x < xMin) Coords(xMax, it.y)
+                else if (it.x > xMax) Coords(xMin, it.y)
+                else if (it.y < yMin) Coords(it.x, yMax)
+                else if (it.y > yMax) Coords(it.x, yMin)
+                else it
+            }
             .filter { !rocks.contains(it) }
     }
 
@@ -85,18 +89,24 @@ data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>) {
         println(getRows().joinToString("\n"))
     }
 
-    fun advance(): Diagram {
+    fun advance(infiniteMap: Boolean): Diagram {
         val newOpenPositions = mutableSetOf<Coords>()
         for (x in xMin..xMax) {
             for (y in yMin..yMax) {
                 val coord = Coords(x, y)
                 if (rocks.contains(coord)) continue
                 if (positions.contains(coord)) {
-                    newOpenPositions.addAll(getOpenAdjacencies(coord))
+                    newOpenPositions.addAll(coord.getAdjacencies())
                 }
             }
         }
-        return Diagram(rocks, newOpenPositions)
+        if (!infiniteMap) {
+            newOpenPositions.removeIf() { !(it.x in xMin..xMax && it.y in yMin..yMax) }
+        }
+
+        newOpenPositions.removeIf { rocks.contains(it) }
+
+        return Diagram(rocks, newOpenPositions.toSet(), xMax, yMax)
     }
 }
 
@@ -109,17 +119,14 @@ fun parseInput(lines: List<String>): Diagram {
             acc
         }
     }.flatten().toSet()
-    return Diagram(tiles, setOf(start!!))
+    return Diagram(tiles, setOf(start!!), lines[0].length, lines.size)
 }
 
 fun part1(lines: List<String>, steps: Int): Int {
-
     var diagram = parseInput(lines)
-
-//    diagram.draw()
     for (i in 1..steps) {
 //        println("after $i iterations:")
-        diagram = diagram.advance()
+        diagram = diagram.advance(false)
 //        diagram.draw()
 //        println("count: ${diagram.positions.size}")
 //        println("")
@@ -128,10 +135,23 @@ fun part1(lines: List<String>, steps: Int): Int {
     return diagram.positions.size
 }
 
+fun part2(lines: List<String>, steps: Int): Int {
+    var diagram = parseInput(lines)
+    for (i in 1..steps) {
+        println("after $i iterations:")
+        diagram = diagram.advance(true)
+        diagram.draw()
+        println("count: ${diagram.positions.size}")
+        println("")
+    }
+
+    return diagram.positions.size
+}
+
 println("--- test input")
-println(part1(testInput, 6))
-// println(part2(testInput))
+println(part1(testInput, 6)) // 16
+// println(part2(testInput, 50))
 
 println("--- real input")
- println(part1(realInput, 64))
+println(part1(realInput, 64)) // 3751
 // println(part2(realInput))
