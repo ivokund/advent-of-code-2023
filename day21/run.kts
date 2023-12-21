@@ -40,20 +40,23 @@ data class Coords(val x: Int, val y: Int) {
 }
 
 data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>, val xMax: Int, val yMax: Int) {
-    private val xMin = 0
-    private val yMin = 0
 
-    fun getOpenInfiniteAdjacencies(coord: Coords): List<Coords> {
-        return coord.getAdjacencies()
-            .map {
-                if (it.x < xMin) Coords(xMax, it.y)
-                else if (it.x > xMax) Coords(xMin, it.y)
-                else if (it.y < yMin) Coords(it.x, yMax)
-                else if (it.y > yMax) Coords(it.x, yMin)
-                else it
-            }
-            .filter { !rocks.contains(it) }
+    val xMin = 0
+    val yMin = 0
+    fun fits (coord: Coords): Boolean {
+        return coord.x in xMin..xMax && coord.y in yMin..yMax
     }
+
+    fun hasRock(coord: Coords): Boolean {
+        val localX = if (coord.x > xMax) coord.x % xMax
+            else if (coord.x < xMin) (coord.x % xMin) + xMax
+            else coord.x
+        val localY = if (coord.y > yMax) coord.y % yMax
+            else if (coord.y < yMin) (coord.y % yMin) + yMax
+            else coord.y
+        return rocks.contains(Coords(localX, localY))
+    }
+
 
     fun getRows(): List<String> {
         val out = mutableListOf<String>()
@@ -90,18 +93,10 @@ data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>, val xMax:
     }
 
     fun advance(infiniteMap: Boolean): Diagram {
-        val newOpenPositions = mutableSetOf<Coords>()
-        for (x in xMin..xMax) {
-            for (y in yMin..yMax) {
-                val coord = Coords(x, y)
-                if (rocks.contains(coord)) continue
-                if (positions.contains(coord)) {
-                    newOpenPositions.addAll(coord.getAdjacencies())
-                }
-            }
-        }
+        val newOpenPositions = positions.flatMap { it.getAdjacencies() }.toMutableSet()
+
         if (!infiniteMap) {
-            newOpenPositions.removeIf() { !(it.x in xMin..xMax && it.y in yMin..yMax) }
+            newOpenPositions.removeIf { !fits(it)}
         }
 
         newOpenPositions.removeIf { rocks.contains(it) }
@@ -140,7 +135,7 @@ fun part2(lines: List<String>, steps: Int): Int {
     for (i in 1..steps) {
         println("after $i iterations:")
         diagram = diagram.advance(true)
-        diagram.draw()
+//        diagram.draw()
         println("count: ${diagram.positions.size}")
         println("")
     }
@@ -149,9 +144,9 @@ fun part2(lines: List<String>, steps: Int): Int {
 }
 
 println("--- test input")
-println(part1(testInput, 6)) // 16
-// println(part2(testInput, 50))
+//println(part1(testInput, 6)) // 16
+ println(part2(testInput, 10))
 
 println("--- real input")
-println(part1(realInput, 64)) // 3751
+//println(part1(realInput, 64)) // 3751
 // println(part2(realInput))
