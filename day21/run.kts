@@ -48,12 +48,8 @@ data class Diagram(val rocks: Set<Coords>, val positions: Set<Coords>, val xMax:
     }
 
     fun hasRock(coord: Coords): Boolean {
-        val localX = if (coord.x > xMax) coord.x % xMax
-            else if (coord.x < xMin) (coord.x % xMin) + xMax
-            else coord.x
-        val localY = if (coord.y > yMax) coord.y % yMax
-            else if (coord.y < yMin) (coord.y % yMin) + yMax
-            else coord.y
+        val localX = (coord.x % xMin)
+        val localY = coord.y % yMin
         return rocks.contains(Coords(localX, localY))
     }
 
@@ -144,9 +140,9 @@ fun part2(lines: List<String>, steps: Int): Int {
 }
 
 println("--- test input")
-//println(part1(testInput, 6)) // 16
- println(part2(testInput, 10))
+println(part1(testInput, 6)) // 16
+// println(part2(testInput, 10))
 
 println("--- real input")
-//println(part1(realInput, 64)) // 3751
+println(part1(realInput, 64)) // 3751
 // println(part2(realInput))
