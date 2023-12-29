@@ -10,46 +10,45 @@ val testInput = """
 1,1,8~1,1,9
 """.trimIndent().lines()
 
-data class Cube(val x: Int, val y: Int, val z: Int) {
-}
-data class Brick(val cubes: Set<Cube>) {
+data class Coord(val x: Int, val y: Int, val z: Int) {
     override fun toString(): String {
-        return "[${cubes.minBy { it.x }.x},${cubes.minBy { it.y }.y},${cubes.minBy { it.z }.z}~${cubes.maxBy { it.x }.x},${cubes.maxBy { it.y }.y},${cubes.maxBy { it.z }.z}]"
+        return "$x,$y,$z"
     }
-    fun isDirectlyUnder(upperBrick: Brick): Boolean {
-        return cubes.any { cube ->
-            upperBrick.cubes.any {
-                it.x == cube.x && it.y == cube.y && cube.z == it.z - 1
-            }
-        }
+}
+
+data class Brick(val from : Coord, val to: Coord) {
+
+    var settled = false
+    override fun toString(): String {
+        return "${from}~${to}"
     }
 
     fun moveOneLower(): Brick {
-        val newBrick = Brick(cubes.map { Cube(it.x, it.y, it.z - 1) }.toSet())
-        return newBrick
+        return Brick(Coord(from.x, from.y, from.z - 1), Coord(to.x, to.y, to.z - 1))
     }
 
     fun intersects(other: Brick): Boolean {
-        return cubes.any { cube ->
-            other.cubes.any {
-                it.x == cube.x && it.y == cube.y && cube.z == it.z
-            }
+        // if either one from or two is inside another cube, it intersects
+        if (other.takesPosition(from) || other.takesPosition(to) || takesPosition(other.from) || takesPosition(other.to)) {
+            return true
         }
+        return false
     }
 
-    fun takesPosition(cube: Cube): Boolean {
-        return cubes.contains(cube)
+    fun takesPosition(coord: Coord): Boolean {
+        return from.x <= coord.x && coord.x <= to.x
+                && from.y <= coord.y && coord.y <= to.y
+                && from.z <= coord.z && coord.z <= to.z
     }
 }
 
 fun test() {
-    val brick1 = Brick(setOf(Cube(0, 0, 1)))
-    val brick2 = Brick(setOf(Cube(0, 0, 2)))
-    val brick3 = Brick(setOf(Cube(0, 0, 4)))
+    val brick1 = Brick(Coord(0, 0, 1), Coord(0, 0, 1))
+    val brick2 = Brick(Coord(0, 0, 2), Coord(0, 0, 2))
+    val brick3 = Brick(Coord(0, 0, 4), Coord(0, 0, 4))
 
     val snap = Snapshot(setOf(brick1, brick2, brick3))
 
-    assert(brick1.isDirectlyUnder(brick2))
     assert(brick2.moveOneLower() == brick1)
     assert(!snap.canBrickExist(brick1.moveOneLower()))
     assert(!snap.canBrickExist(brick2.moveOneLower()))
@@ -64,23 +63,18 @@ test()
 data class Snapshot(val bricks: Set<Brick>) {
 
     fun settle(): Snapshot {
-        var settled = false
         var snapshot = this
 
-        while (!settled) {
-            val brick = snapshot.getFirstMovableBrick()
-            if (brick == null) {
-                settled = true
-            } else {
-                println("- moving brick $brick")
-                snapshot = snapshot.applyGravity(brick)
+        while (snapshot.bricks.count { !it.settled } > 0 ) {
+            val brick = snapshot.getLowestUnsettledBrick()
+            println("- moving brick $brick")
+            snapshot = snapshot.applyGravity(brick!!)
 //                snapshot.draw()
-            }
         }
         return snapshot
     }
     fun canBrickExist(brick: Brick): Boolean {
-        if (brick.cubes.any { it.z < 1}) {
+        if (brick.from.z < 1) {
             return false
         }
         if (!brickIsFree(brick)) {
@@ -90,34 +84,43 @@ data class Snapshot(val bricks: Set<Brick>) {
     }
 
     fun applyGravity(brick: Brick): Snapshot {
-        return Snapshot(bricks.map {
-            if (it == brick) {
-                it.moveOneLower()
-            } else {
-                it
-            }
-        }.toSet())
+
+        val snapWithoutBrick = Snapshot(bricks.minusElement(brick))
+
+        var lowestBrick = brick
+
+        while (snapWithoutBrick.canBrickExist(lowestBrick.moveOneLower())) {
+            lowestBrick = lowestBrick.moveOneLower()
+        }
+
+        lowestBrick.settled = true
+        return snapWithoutBrick.bricks.plusElement(lowestBrick).let { Snapshot(it) }
     }
 
     fun brickIsFree(brick: Brick): Boolean {
         return bricks.none { it.intersects(brick) }
     }
 
-    fun getFirstMovableBrick(): Brick? {
-        return bricks.firstOrNull {
-            Snapshot(bricks.minusElement(it))
-                .canBrickExist(it.moveOneLower())
+    fun getLowestUnsettledBrick(): Brick? {
+        return bricks.filter { !it.settled }.minByOrNull { it.from.z }
+    }
+
+    fun recalcSettled(): Snapshot {
+        val newBricks = bricks.map {
+            it.settled = !Snapshot(bricks.minusElement(it)).canBrickExist(it.moveOneLower())
+            it
         }
+        return Snapshot(newBricks.toSet())
     }
 
     fun draw() {
         val out: MutableList<String> = mutableListOf()
-        val xMin = bricks.minOf { it.cubes.map { it.x }.min() }
-        val yMin = bricks.minOf { it.cubes.map { it.y }.min() }
+        val xMin = bricks.minOf { it.from.x }
+        val yMin = bricks.minOf { it.from.y }
         val zMin = 0
-        val yMax = bricks.maxOf { it.cubes.map { it.y }.max() }
-        val xMax = bricks.maxOf { it.cubes.map { it.x }.max() }
-        val zMax = bricks.maxOf { it.cubes.map { it.z }.max() }
+        val yMax = bricks.maxOf { it.to.y }
+        val xMax = bricks.maxOf { it.to.x }
+        val zMax = bricks.maxOf { it.to.z }
 
         println("x: $xMin..$xMax, y: $yMin..$yMax, z: $zMin..$zMax")
 
@@ -127,7 +130,7 @@ data class Snapshot(val bricks: Set<Brick>) {
 
                 val matchingBricks = mutableSetOf<Brick>()
                 for (y in yMin..yMax) {
-                    val matching = bricks.filter { it.takesPosition(Cube(x, y, z)) }
+                    val matching = bricks.filter { it.takesPosition(Coord(x, y, z)) }
 //                    println("x: $x, y: $y, z: $z, matching: ${matching.size}")
                     matchingBricks.addAll(matching)
                 }
@@ -146,17 +149,12 @@ val realInput = File("day22/input.txt").readLines()
 
 fun parse(line: List<String>): Snapshot {
     val bricks = line.map { linePart ->
-        val cubes = mutableSetOf<Cube>()
         val (coord1, coord2) = linePart.split("~")
             .map { it.split(",").map { it.toInt() } }
-        for (x in coord1[0]..coord2[0]) {
-            for (y in coord1[1]..coord2[1]) {
-                for (z in coord1[2]..coord2[2]) {
-                    cubes.add(Cube(x, y, z))
-                }
-            }
-        }
-        Brick(cubes)
+        Brick(
+            Coord(coord1[0], coord1[1], coord1[2]),
+            Coord(coord2[0], coord2[1], coord2[2])
+        )
     }.toSet()
     return Snapshot(bricks)
 }
@@ -167,11 +165,15 @@ fun part1(lines: List<String>): Int {
     val settled = snapshot.settle()
     println("settled")
 
-    return settled.bricks.filter {
-        println("checking brick $it")
-        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it))
-        snapWithoutBrick.getFirstMovableBrick() == null
-    }.size
+    settled.draw()
+    return 0
+
+//    return settled.bricks.filter {
+//        println("checking brick $it")
+//        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
+//        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
+//        unsettledCount== 0
+//    }.size
 }
 
 println("--- test input")
@@ -179,5 +181,7 @@ println(part1(testInput))
 // println(part2(testInput))
 
 println("--- real input")
- println(part1(realInput))
+ println(part1(realInput)) // 522
 // println(part2(realInput))
+
+// 516
