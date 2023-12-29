@@ -28,17 +28,23 @@ data class Brick(val from : Coord, val to: Coord) {
     }
 
     fun intersects(other: Brick): Boolean {
-        // if either one from or two is inside another cube, it intersects
-        if (other.takesPosition(from) || other.takesPosition(to) || takesPosition(other.from) || takesPosition(other.to)) {
-            return true
+
+        for (x in from.x..to.x) {
+            for (y in from.y..to.y) {
+                for (z in from.z..to.z) {
+                    if (other.occupies(Coord(x, y, z))) {
+                        return true
+                    }
+                }
+            }
         }
+
         return false
     }
 
-    fun takesPosition(coord: Coord): Boolean {
-        return from.x <= coord.x && coord.x <= to.x
-                && from.y <= coord.y && coord.y <= to.y
-                && from.z <= coord.z && coord.z <= to.z
+    fun occupies(coord: Coord): Boolean {
+        return from.x <= coord.x && from.y <= coord.y && from.z <= coord.z &&
+                to.x >= coord.x && to.y >= coord.y && to.z >= coord.z
     }
 }
 
@@ -53,9 +59,6 @@ fun test() {
     assert(!snap.canBrickExist(brick1.moveOneLower()))
     assert(!snap.canBrickExist(brick2.moveOneLower()))
     assert(snap.canBrickExist(brick3.moveOneLower()))
-
-    // todo: vertical slices test case
-
 }
 test()
 
@@ -130,7 +133,7 @@ data class Snapshot(val bricks: Set<Brick>) {
 
                 val matchingBricks = mutableSetOf<Brick>()
                 for (y in yMin..yMax) {
-                    val matching = bricks.filter { it.takesPosition(Coord(x, y, z)) }
+                    val matching = bricks.filter { it.occupies(Coord(x, y, z)) }
 //                    println("x: $x, y: $y, z: $z, matching: ${matching.size}")
                     matchingBricks.addAll(matching)
                 }
@@ -163,17 +166,14 @@ fun part1(lines: List<String>): Int {
     var snapshot = parse(lines)
 
     val settled = snapshot.settle()
-    println("settled")
 
-    settled.draw()
-    return 0
 
-//    return settled.bricks.filter {
-//        println("checking brick $it")
-//        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
-//        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
-//        unsettledCount== 0
-//    }.size
+    return settled.bricks.filter {
+        println("checking brick $it")
+        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
+        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
+        unsettledCount== 0
+    }.size
 }
 
 println("--- test input")
