@@ -68,7 +68,15 @@ data class Snapshot(val bricks: Set<Brick>) {
     }
 
     fun getFallingBricksIfIWouldRemoveBrick(brickToRemove: Brick): Set<Brick> {
-        val looseBricks = createWithout(brickToRemove).getLooseBricks()
+        val snapWithout = createWithout(brickToRemove)
+
+        val looseBricks = snapWithout.bricks.filter {
+            if (it.from.z == brickToRemove.to.z + 1) {
+                snapWithout.canBrickMoveLower(it)
+            } else {
+                false
+            }
+        }.toSet()
         return looseBricks
     }
 
@@ -80,11 +88,14 @@ data class Snapshot(val bricks: Set<Brick>) {
         while (unsettledStack.size > 0) {
             val lowestBrick = unsettledStack.minBy { it.from.z }
             unsettledStack.remove(lowestBrick)
-
-            println("- moving brick $lowestBrick")
             snapshot = snapshot.applyGravity(lowestBrick)
         }
         return snapshot
+    }
+
+    fun canBrickMoveLower(brick: Brick): Boolean {
+        val newSnap = createWithout(brick)
+        return newSnap.canBrickExist(brick.moveOneLower())
     }
 
     fun canBrickExist(brick: Brick): Boolean {
