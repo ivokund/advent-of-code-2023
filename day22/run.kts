@@ -1,13 +1,13 @@
 import java.io.File
 
 val testInput = """
-1,0,1~1,2,1
-0,0,2~2,0,2
-0,2,3~2,2,3
-0,0,4~0,2,4
-2,0,5~2,2,5
-0,1,6~2,1,6
-1,1,8~1,1,9
+1,0,1~1,2,1~A
+0,0,2~2,0,2~B
+0,2,3~2,2,3~C
+0,0,4~0,2,4~D
+2,0,5~2,2,5~E
+0,1,6~2,1,6~F
+1,1,8~1,1,9~G
 """.trimIndent().lines()
 
 data class Coord(val x: Int, val y: Int, val z: Int) {
@@ -16,19 +16,17 @@ data class Coord(val x: Int, val y: Int, val z: Int) {
     }
 }
 
-data class Brick(val from : Coord, val to: Coord) {
+data class Brick(val from: Coord, val to: Coord, val name: String?) {
 
-    var settled = false
     override fun toString(): String {
-        return "${from}~${to}"
+        return name ?: "${from}~${to}"
     }
 
     fun moveOneLower(): Brick {
-        return Brick(Coord(from.x, from.y, from.z - 1), Coord(to.x, to.y, to.z - 1))
+        return Brick(Coord(from.x, from.y, from.z - 1), Coord(to.x, to.y, to.z - 1), name)
     }
 
     fun intersects(other: Brick): Boolean {
-
         for (x in from.x..to.x) {
             for (y in from.y..to.y) {
                 for (z in from.z..to.z) {
@@ -49,9 +47,9 @@ data class Brick(val from : Coord, val to: Coord) {
 }
 
 fun test() {
-    val brick1 = Brick(Coord(0, 0, 1), Coord(0, 0, 1))
-    val brick2 = Brick(Coord(0, 0, 2), Coord(0, 0, 2))
-    val brick3 = Brick(Coord(0, 0, 4), Coord(0, 0, 4))
+    val brick1 = Brick(Coord(0, 0, 1), Coord(0, 0, 1), null)
+    val brick2 = Brick(Coord(0, 0, 2), Coord(0, 0, 2), null)
+    val brick3 = Brick(Coord(0, 0, 4), Coord(0, 0, 4), null)
 
     val snap = Snapshot(setOf(brick1, brick2, brick3))
 
@@ -65,17 +63,30 @@ test()
 
 data class Snapshot(val bricks: Set<Brick>) {
 
+    fun createWithout(brick: Brick): Snapshot {
+        return Snapshot(bricks.minusElement(brick))
+    }
+
+    fun getFallingBricksIfIWouldRemoveBrick(brickToRemove: Brick): Set<Brick> {
+        val looseBricks = createWithout(brickToRemove).getLooseBricks()
+        return looseBricks
+    }
+
+
     fun settle(): Snapshot {
         var snapshot = this
 
-        while (snapshot.bricks.count { !it.settled } > 0 ) {
-            val brick = snapshot.getLowestUnsettledBrick()
-            println("- moving brick $brick")
-            snapshot = snapshot.applyGravity(brick!!)
-//                snapshot.draw()
+        val unsettledStack = bricks.toMutableSet()
+        while (unsettledStack.size > 0) {
+            val lowestBrick = unsettledStack.minBy { it.from.z }
+            unsettledStack.remove(lowestBrick)
+
+            println("- moving brick $lowestBrick")
+            snapshot = snapshot.applyGravity(lowestBrick)
         }
         return snapshot
     }
+
     fun canBrickExist(brick: Brick): Boolean {
         if (brick.from.z < 1) {
             return false
@@ -88,7 +99,7 @@ data class Snapshot(val bricks: Set<Brick>) {
 
     fun applyGravity(brick: Brick): Snapshot {
 
-        val snapWithoutBrick = Snapshot(bricks.minusElement(brick))
+        val snapWithoutBrick = createWithout(brick)
 
         var lowestBrick = brick
 
@@ -96,24 +107,20 @@ data class Snapshot(val bricks: Set<Brick>) {
             lowestBrick = lowestBrick.moveOneLower()
         }
 
-        lowestBrick.settled = true
-        return snapWithoutBrick.bricks.plusElement(lowestBrick).let { Snapshot(it) }
+        val newSnap = Snapshot(snapWithoutBrick.bricks.plusElement(lowestBrick))
+
+        return newSnap
     }
 
     fun brickIsFree(brick: Brick): Boolean {
         return bricks.none { it.intersects(brick) }
     }
 
-    fun getLowestUnsettledBrick(): Brick? {
-        return bricks.filter { !it.settled }.minByOrNull { it.from.z }
-    }
-
-    fun recalcSettled(): Snapshot {
-        val newBricks = bricks.map {
-            it.settled = !Snapshot(bricks.minusElement(it)).canBrickExist(it.moveOneLower())
-            it
-        }
-        return Snapshot(newBricks.toSet())
+    fun getLooseBricks(): Set<Brick> {
+        return bricks.filter {
+            val snapWithout = createWithout(it)
+            snapWithout.canBrickExist(it.moveOneLower())
+        }.toSet()
     }
 
     fun draw() {
@@ -152,28 +159,65 @@ val realInput = File("day22/input.txt").readLines()
 
 fun parse(line: List<String>): Snapshot {
     val bricks = line.map { linePart ->
-        val (coord1, coord2) = linePart.split("~")
+        val (coord1, coord2) = linePart.split("~").take(2)
             .map { it.split(",").map { it.toInt() } }
+        val name = linePart.split("~").getOrNull(2)
         Brick(
             Coord(coord1[0], coord1[1], coord1[2]),
-            Coord(coord2[0], coord2[1], coord2[2])
+            Coord(coord2[0], coord2[1], coord2[2]),
+            name
         )
     }.toSet()
     return Snapshot(bricks)
 }
 
 fun part1(lines: List<String>): Int {
+    val snapshot = parse(lines)
+
+    val settledSnapshot = snapshot.settle()
+    return settledSnapshot.bricks.filter {
+        val toFall = settledSnapshot.getFallingBricksIfIWouldRemoveBrick(it)
+        toFall.isEmpty()
+    }.size
+}
+
+
+fun part2(lines: List<String>): Int {
     var snapshot = parse(lines)
 
     val settled = snapshot.settle()
+    val topBricksByLocation = mutableMapOf<String, MutableList<String>>()
 
 
-    return settled.bricks.filter {
-        println("checking brick $it")
-        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
-        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
-        unsettledCount== 0
-    }.size
+    val chainReactionBricks = mutableSetOf<Brick>()
+
+//
+//    settled.bricks.forEach {
+//        topBricksByLocation.set(it.toString(), mutableListOf())
+//        println("checking brick $it")
+//        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
+//        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
+//
+//        if (unsettledCount > 0) {
+//            chainReactionBricks.add(it)
+//        }
+//        snapWithoutBrick.bricks.filter { brick -> !brick.settled }.forEach { brick ->
+//            topBricksByLocation[it.toString()]!!.add(brick.toString())
+//        }
+//    }
+
+    fun getCount(brickId: String): Int {
+        println(" $brickId would cause itself to fall plus sum of:")
+        return 1 + topBricksByLocation[brickId]!!.sumOf { getCount(it) }
+    }
+
+    chainReactionBricks.forEach {
+        println("=== GETTING COUNT FOR $it")
+        println(">> " + getCount(it.toString()))
+    }
+
+    println(topBricksByLocation)
+    return 0
 }
 
 println("--- test input")
@@ -181,7 +225,7 @@ println(part1(testInput))
 // println(part2(testInput))
 
 println("--- real input")
- println(part1(realInput)) // 522
+println(part1(realInput)) // 522
 // println(part2(realInput))
 
 // 516
