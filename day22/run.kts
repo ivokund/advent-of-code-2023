@@ -81,16 +81,22 @@ data class Snapshot(val bricks: Set<Brick>) {
     }
 
 
-    fun settle(): Snapshot {
+    fun settle(): Pair<Snapshot, Int> {
         var snapshot = this
+        var movedCount = 0
 
         val unsettledStack = bricks.toMutableSet()
         while (unsettledStack.size > 0) {
             val lowestBrick = unsettledStack.minBy { it.from.z }
             unsettledStack.remove(lowestBrick)
-            snapshot = snapshot.applyGravity(lowestBrick)
+            val result = snapshot.applyGravity(lowestBrick)
+            snapshot = result.first
+            val moved = result.second
+            if (moved) {
+                movedCount++
+            }
         }
-        return snapshot
+        return Pair(snapshot, movedCount)
     }
 
     fun canBrickMoveLower(brick: Brick): Boolean {
@@ -108,19 +114,21 @@ data class Snapshot(val bricks: Set<Brick>) {
         return true
     }
 
-    fun applyGravity(brick: Brick): Snapshot {
+    fun applyGravity(brick: Brick): Pair<Snapshot, Boolean> {
 
         val snapWithoutBrick = createWithout(brick)
 
         var lowestBrick = brick
+        var moved = false
 
         while (snapWithoutBrick.canBrickExist(lowestBrick.moveOneLower())) {
             lowestBrick = lowestBrick.moveOneLower()
+            moved = true
         }
 
         val newSnap = Snapshot(snapWithoutBrick.bricks.plusElement(lowestBrick))
 
-        return newSnap
+        return Pair(newSnap, moved)
     }
 
     fun brickIsFree(brick: Brick): Boolean {
@@ -185,7 +193,7 @@ fun parse(line: List<String>): Snapshot {
 fun part1(lines: List<String>): Int {
     val snapshot = parse(lines)
 
-    val settledSnapshot = snapshot.settle()
+    val (settledSnapshot) = snapshot.settle()
     return settledSnapshot.bricks.filter {
         val toFall = settledSnapshot.getFallingBricksIfIWouldRemoveBrick(it)
         toFall.isEmpty()
@@ -196,47 +204,29 @@ fun part1(lines: List<String>): Int {
 fun part2(lines: List<String>): Int {
     var snapshot = parse(lines)
 
-    val settled = snapshot.settle()
-    val topBricksByLocation = mutableMapOf<String, MutableList<String>>()
+    val (settled) = snapshot.settle()
 
-
-    val chainReactionBricks = mutableSetOf<Brick>()
-
-//
-//    settled.bricks.forEach {
-//        topBricksByLocation.set(it.toString(), mutableListOf())
-//        println("checking brick $it")
-//        val snapWithoutBrick = Snapshot(settled.bricks.minusElement(it)).recalcSettled()
-//        val unsettledCount = snapWithoutBrick.bricks.count { !it.settled }
-//
-//        if (unsettledCount > 0) {
-//            chainReactionBricks.add(it)
-//        }
-//        snapWithoutBrick.bricks.filter { brick -> !brick.settled }.forEach { brick ->
-//            topBricksByLocation[it.toString()]!!.add(brick.toString())
-//        }
-//    }
-
-    fun getCount(brickId: String): Int {
-        println(" $brickId would cause itself to fall plus sum of:")
-        return 1 + topBricksByLocation[brickId]!!.sumOf { getCount(it) }
+    fun getSum(brick: Brick, indent: Int = 0): Int {
+        val toFall = settled.getFallingBricksIfIWouldRemoveBrick(brick)
+        val (_, count) = Snapshot(settled.bricks - brick).settle()
+        return count + toFall.sumOf { getSum(it, indent + 1) }
     }
 
-    chainReactionBricks.forEach {
-        println("=== GETTING COUNT FOR $it")
-        println(">> " + getCount(it.toString()))
-    }
 
-    println(topBricksByLocation)
-    return 0
+    var i = 0
+    val sums = settled.bricks.sumOf {
+        println("brick: $it: ${i++ / settled.bricks.size.toDouble() * 100}%")
+        getSum(it)
+    }
+    return sums
 }
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput)) // 522
 // println(part2(realInput))
 
-// 516
+// 834750
