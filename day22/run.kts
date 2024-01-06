@@ -1,14 +1,15 @@
 import java.io.File
 
-val testInput = """
-1,0,1~1,2,1~A
-0,0,2~2,0,2~B
-0,2,3~2,2,3~C
-0,0,4~0,2,4~D
-2,0,5~2,2,5~E
-0,1,6~2,1,6~F
-1,1,8~1,1,9~G
-""".trimIndent().lines()
+val testInput =
+    """
+    1,0,1~1,2,1~A
+    0,0,2~2,0,2~B
+    0,2,3~2,2,3~C
+    0,0,4~0,2,4~D
+    2,0,5~2,2,5~E
+    0,1,6~2,1,6~F
+    1,1,8~1,1,9~G
+    """.trimIndent().lines()
 
 data class Coord(val x: Int, val y: Int, val z: Int) {
     override fun toString(): String {
@@ -17,9 +18,8 @@ data class Coord(val x: Int, val y: Int, val z: Int) {
 }
 
 data class Brick(val from: Coord, val to: Coord, val name: String?) {
-
     override fun toString(): String {
-        return name ?: "${from}~${to}"
+        return name ?: "$from~$to"
     }
 
     fun moveOneLower(): Brick {
@@ -42,7 +42,7 @@ data class Brick(val from: Coord, val to: Coord, val name: String?) {
 
     fun occupies(coord: Coord): Boolean {
         return from.x <= coord.x && from.y <= coord.y && from.z <= coord.z &&
-                to.x >= coord.x && to.y >= coord.y && to.z >= coord.z
+            to.x >= coord.x && to.y >= coord.y && to.z >= coord.z
     }
 }
 
@@ -60,26 +60,26 @@ fun test() {
 }
 test()
 
-
 data class Snapshot(val bricks: Set<Brick>) {
-
     fun createWithout(brick: Brick): Snapshot {
         return Snapshot(bricks.minusElement(brick))
     }
 
-    fun getFallingBricksIfIWouldRemoveBrick(brickToRemove: Brick): Set<Brick> {
-        val snapWithout = createWithout(brickToRemove)
+    fun getFallingBricksIfIWouldRemoveBricks(bricksToRemove: Set<Brick>): Set<Brick> {
+        val snapWithout = Snapshot(bricks - bricksToRemove)
 
-        val looseBricks = snapWithout.bricks.filter {
-            if (it.from.z == brickToRemove.to.z + 1) {
-                snapWithout.canBrickMoveLower(it)
-            } else {
-                false
-            }
-        }.toSet()
+        val unstabilizedZs = bricksToRemove.map { it.to.z + 1 }.toSet()
+
+        val looseBricks =
+            snapWithout.bricks.filter {
+                if (unstabilizedZs.contains(it.from.z)) {
+                    snapWithout.canBrickMoveLower(it)
+                } else {
+                    false
+                }
+            }.toSet()
         return looseBricks
     }
-
 
     fun settle(): Pair<Snapshot, Int> {
         var snapshot = this
@@ -115,7 +115,6 @@ data class Snapshot(val bricks: Set<Brick>) {
     }
 
     fun applyGravity(brick: Brick): Pair<Snapshot, Boolean> {
-
         val snapWithoutBrick = createWithout(brick)
 
         var lowestBrick = brick
@@ -156,19 +155,23 @@ data class Snapshot(val bricks: Set<Brick>) {
         for (z in zMax downTo zMin) {
             var line = ""
             for (x in xMin..xMax) {
-
                 val matchingBricks = mutableSetOf<Brick>()
                 for (y in yMin..yMax) {
                     val matching = bricks.filter { it.occupies(Coord(x, y, z)) }
-//                    println("x: $x, y: $y, z: $z, matching: ${matching.size}")
                     matchingBricks.addAll(matching)
                 }
-//                println("matchingBricks: ${matchingBricks.size}")
 
                 val brickCount = matchingBricks.size
-                line += if (brickCount > 0) brickCount else if (z == 0) "-" else "."
+                line +=
+                    if (brickCount > 0) {
+                        brickCount
+                    } else if (z == 0) {
+                        "-"
+                    } else {
+                        "."
+                    }
             }
-            out.add(line + " z: $z")
+            out.add("$line z: $z")
         }
         println(out.joinToString("\n"))
     }
@@ -177,16 +180,18 @@ data class Snapshot(val bricks: Set<Brick>) {
 val realInput = File("day22/input.txt").readLines()
 
 fun parse(line: List<String>): Snapshot {
-    val bricks = line.map { linePart ->
-        val (coord1, coord2) = linePart.split("~").take(2)
-            .map { it.split(",").map { it.toInt() } }
-        val name = linePart.split("~").getOrNull(2)
-        Brick(
-            Coord(coord1[0], coord1[1], coord1[2]),
-            Coord(coord2[0], coord2[1], coord2[2]),
-            name
-        )
-    }.toSet()
+    val bricks =
+        line.map { linePart ->
+            val (coord1, coord2) =
+                linePart.split("~").take(2)
+                    .map { it.split(",").map { it.toInt() } }
+            val name = linePart.split("~").getOrNull(2)
+            Brick(
+                Coord(coord1[0], coord1[1], coord1[2]),
+                Coord(coord2[0], coord2[1], coord2[2]),
+                name,
+            )
+        }.toSet()
     return Snapshot(bricks)
 }
 
@@ -195,29 +200,33 @@ fun part1(lines: List<String>): Int {
 
     val (settledSnapshot) = snapshot.settle()
     return settledSnapshot.bricks.filter {
-        val toFall = settledSnapshot.getFallingBricksIfIWouldRemoveBrick(it)
+        val toFall = settledSnapshot.getFallingBricksIfIWouldRemoveBricks(setOf(it))
         toFall.isEmpty()
     }.size
 }
 
-
 fun part2(lines: List<String>): Int {
-    var snapshot = parse(lines)
+    val snapshot = parse(lines)
 
     val (settled) = snapshot.settle()
 
-    fun getSum(brick: Brick, indent: Int = 0): Int {
-        val toFall = settled.getFallingBricksIfIWouldRemoveBrick(brick)
-        val (_, count) = Snapshot(settled.bricks - brick).settle()
-        return count + toFall.sumOf { getSum(it, indent + 1) }
-    }
+    fun getSum(bricks: Set<Brick>): Set<Brick> {
+        val toFall = settled.getFallingBricksIfIWouldRemoveBricks(bricks)
 
+        if (toFall.isEmpty()) {
+            return emptySet()
+        } else {
+            return toFall + getSum(bricks + toFall)
+        }
+    }
 
     var i = 0
-    val sums = settled.bricks.sumOf {
-        println("brick: $it: ${i++ / settled.bricks.size.toDouble() * 100}%")
-        getSum(it)
-    }
+    val sums =
+        settled.bricks.sumOf {
+            println("brick: $it: ${i++ / settled.bricks.size.toDouble() * 100}%")
+            val sum = getSum(setOf(it)).size
+            sum
+        }
     return sums
 }
 
@@ -227,6 +236,4 @@ println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput)) // 522
-// println(part2(realInput))
-
-// 834750
+println(part2(realInput)) // 83519
