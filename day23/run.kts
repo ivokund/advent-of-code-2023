@@ -112,18 +112,24 @@ data class Diagram(val tiles: Map<Coords, Char>) {
     fun getMaxMoves(): Set<Coords> {
         val frames = mutableListOf(Frame(Coords(1, 0), setOf()))
 
+        var i = 0
         var maxCoords = setOf<Coords>()
         while (frames.isNotEmpty()) {
-            val frame = frames.removeAt(0)
-
-            if (frame.visited.size > maxCoords.size) {
-                maxCoords = frame.visited
-            }
+            i++
+            val frame = frames.removeLast()
 
             val nextMoves =
                 getPossibleMovesFrom(frame.pos)
                     .filter { !frame.visited.contains(it) }
                     .map { Frame(it, frame.visited + it) }
+
+            if (i % 1000 == 0) {
+                println("i: $i, frames: ${frames.size}, max: ${maxCoords.size}")
+            }
+            if (frame.visited.size > maxCoords.size && nextMoves.isEmpty() && frame.pos.y == yMax) {
+                maxCoords = frame.visited
+            }
+
             frames.addAll(nextMoves)
         }
         return maxCoords
@@ -148,30 +154,21 @@ data class Frame(val pos: Coords, val visited: Set<Coords>)
 
 fun part1(lines: List<String>): Int {
     val diagram = parseInput(lines)
-    diagram.draw()
     return diagram.getMaxMoves().size
 }
 
 fun part2(lines: List<String>): Int {
     val newLines = lines.map { it.replace(Regex("([<>^v])"), ".") }
     val diagram = parseInput(newLines)
-//    diagram.draw()
 
     val moves = diagram.getMaxMoves()
-
-    val nd =
-        Diagram(
-            diagram.tiles.mapValues { if (moves.contains(it.key)) '✅' else it.value },
-        )
-    nd.draw()
-
-    return diagram.getMaxMoves().size
+    return moves.size
 }
 
 println("--- test input")
 println(part1(testInput))
-// println(part2(testInput))
+println(part2(testInput))
 
 println("--- real input")
 println(part1(realInput))
-// println(part2(realInput))
+println(part2(realInput))
